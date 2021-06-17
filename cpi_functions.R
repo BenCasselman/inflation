@@ -66,7 +66,6 @@ item_contrib <- function(item, rel_imp, startdate,
   w$item_chg[1]/w$all_item_chg[1]
 }
 
-
 # Calculate relative importance
 rel_imp <- function(series, rel_imp, startdate, 
                     all_items = "CUSR0000SA0", 
