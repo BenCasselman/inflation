@@ -207,11 +207,62 @@ wts_2017 <- wts_2017 %>%
 
 # wts_2017
 
+# 2016
+wts_2016 <- read_table("https://www.bls.gov/cpi/tables/relative-importance/2016.txt",
+                       skip = 14, col_names = FALSE) # Make sure to double-check you're skipping the right number of rows!
+
+wts_2016 <- wts_2016 %>% 
+  filter(X1 != "") %>% 
+  rename(item_name = X1, wt = X2, w_wt = X3) %>% 
+  mutate(item_name = gsub("\\.", "", item_name),
+         rownum = row_number(),
+         item_name = case_when(rownum == 1 ~ item_name,
+                               is.na(lag(wt, 1, na.pad = T)) & is.na(lag(wt, 2, na.pad = T)) ~ paste(lag(item_name, 2), lag(item_name, 1), item_name, sep = " "),
+                               is.na(lag(wt, 1, na.pad = T)) ~ paste(lag(item_name, 1, na.pad = T), item_name, sep = " "),
+                               TRUE ~ item_name),
+         match_name = gsub(",", "", item_name),
+         match_name = gsub("'", "", match_name),
+         match_name = tolower(match_name)) %>% 
+  filter(!is.na(wt)) %>% 
+  select(rownum, item_name, wt, w_wt, match_name)
+
+wts_2016 %>%
+  left_join(cpi_item_match, by = c("match_name" = "item_name")) %>%
+  filter(is.na(item_code),
+         !grepl("Unsampled", item_name))
+
+# hand-fix items
+wts_2016 <- wts_2016 %>% 
+  mutate(match_name = case_when(rownum == 28 ~ "Other pork including roasts, steaks, and ribs",
+                                rownum == 32 ~ "Other uncooked poultry including turkey",
+                                rownum == 69 ~ "Sugar and sugar substitutes",
+                                rownum == 156 ~ "Men's underwear, nightwear, swimwear and accessories",
+                                rownum == 167 ~ "Women's underwear, nightwear, swimwear and accessories",
+                                rownum == 203 ~ "Airline fares",
+                                rownum == 227 ~ "Cable and satellite television service",
+                                rownum == 230 ~ "Video discs and other media, including rental of video",
+                                rownum == 232 ~ "Recorded music and music subscriptions",
+                                rownum == 243 ~ "Photographers and photo processing",
+                                rownum == 252 ~ "Club membership for shopping clubs, fraternal, or other organizations, or participant sports fees",
+                                rownum == 266 ~ "Day care and preschool",
+                                rownum == 279 ~ "Computers, peripherals, and smart home assistants",
+                                TRUE ~ match_name),
+         match_name = gsub(",", "", match_name),
+         match_name = gsub("'", "", match_name),
+         match_name = tolower(match_name))
+
+wts_2016 <- wts_2016 %>% 
+  left_join(cpi_item_match, by = c("match_name" = "item_name")) %>% 
+  mutate(date = ymd("2016-12-01"))
+
+# wts_2016
+
+
 # Combine these into a single dataframe:
-wts_all <- bind_rows(wts_2017, wts_2018, wts_2019, wts_2020) %>% 
+wts_all <- bind_rows(wts_2016, wts_2017, wts_2018, wts_2019, wts_2020) %>% 
   select(-rownum) 
 
-# rm(wts_2017, wts_2018, wts_2019, wts_2020)
+# rm(wts_2016, wts_2017, wts_2018, wts_2019, wts_2020)
 
 # We'll calculate the intra-December months using the methodology described here: https://www.bls.gov/cpi/tables/relative-importance/home.htm
 # That requires the CPI index values.
@@ -227,7 +278,7 @@ cpi_series <- read_tsv("https://download.bls.gov/pub/time.series/cu/cu.series")
 # this dataset more manageable.
 
 cpi_wts <- cpi_data %>% 
-  filter(date >= ymd("2017-12-01")) %>% # Adjust this if you download more years of weights
+  filter(date >= ymd("2016-12-01")) %>% # Adjust this if you download more years of weights
   left_join(cpi_series, by = "series_id") %>% 
   filter(seasonal == "U",
          area_code == "0000",
@@ -288,9 +339,9 @@ cpi_wts <- cpi_wts %>%
   filter(!is.na(wt))
 
 # Spot-check against weights in latest CPI release:
-cpi_wts %>% 
-  filter(item_code == "SERF02") %>% 
-  arrange(desc(date))
+# cpi_wts %>% 
+#   filter(item_code == "SERF02") %>% 
+#   arrange(desc(date))
 
 # Save and output to .csv
 save(cpi_wts, file = "cpi_wts.RData")

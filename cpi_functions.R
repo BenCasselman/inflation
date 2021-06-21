@@ -37,6 +37,18 @@ cpi_y <- function(series, label, comp_series = "CUUR0000SA0", comp_label = "All 
            point = case_when(date == max(date) ~ change))
 }
 
+cpi_theme <- function() {
+  theme(plot.title = element_text(size = 26),
+        plot.subtitle = element_text(size = 20),
+        plot.background = element_rect(fill = "white"),
+        panel.background = element_blank(),
+        panel.grid.major = element_line(colour = "grey", size = 0.4),
+        panel.grid.minor = element_blank(),
+        axis.text = element_text(colour = "grey50", size = 16),
+        axis.ticks = element_line(colour = "grey", size = 0.4),
+        plot.caption = element_text(colour = "grey50", size = 16))
+}
+
 # Calculator for special indexes "ex-" an arbitrary number of items. Assumes you have
 # `cpi_wts` updated. See below function that doesn't require that.
 ex_items <- function(series, startdate, 
@@ -84,22 +96,31 @@ ex_items <- function(series, startdate,
     select(date, all_items, wt, ex_item, ex_chg)
 }
 
-
-
-cpi_theme <- function() {
-  theme(plot.title = element_text(size = 26),
-        plot.subtitle = element_text(size = 20),
-        plot.background = element_rect(fill = "white"),
-        panel.background = element_blank(),
-        panel.grid.major = element_line(colour = "grey", size = 0.4),
-        panel.grid.minor = element_blank(),
-        axis.text = element_text(colour = "grey50", size = 16),
-        axis.ticks = element_line(colour = "grey", size = 0.4),
-        plot.caption = element_text(colour = "grey50", size = 16))
-}
-
 # Calculate given item's share of total CPI growth over given period
-item_contrib <- function(item, rel_imp, startdate, 
+item_contrib <- function(item, startdate,
+                         all_items = "CUSR0000SA0",
+                         df = cpi_data,
+                         wt_df = cpi_wts) {
+  
+  w <-     df %>% 
+    filter(series_id %in% c(item, all_items),
+           date >= ymd(startdate)) %>% 
+    left_join(cpi_series, by = "series_id") %>% 
+    left_join(wt_df, by = c("item_code", "date")) %>% 
+    mutate(series_id = factor(series_id, levels = c(item, all_items),
+                              labels = c("item", "all"))) %>% 
+    select(series_id, date, value, wt) %>% 
+    pivot_wider(names_from = series_id, values_from = c(value, wt)) %>% 
+    mutate(item_chg = first(wt_item) * (value_item/first(value_item)) - first(wt_item),
+           all_item_chg = wt_all * (value_all/first(value_all)) - wt_all) %>% 
+    arrange(desc(date))
+  
+  w$item_chg[1]/w$all_item_chg[1]
+
+  }
+
+# Doesn't require 'cpi_wts' calculation:
+item_contrib_old <- function(item, rel_imp, startdate, 
                          all_items = "CUSR0000SA0", 
                          all_items_wt = 100,
                          df = cpi_data) {
