@@ -68,7 +68,8 @@ wts_2020 <- wts_2020 %>%
 # Now we join these:
 wts_2020 <- wts_2020 %>% 
   left_join(cpi_item_match, by = c("match_name" = "item_name")) %>% 
-  mutate(date = ymd("2020-12-01")) # add a date since eventually we're merging these files
+  mutate(date = ymd("2020-12-01")) %>% # add a date since eventually we're merging these files
+  filter(!duplicated(item_code))
 
 # Check this carefully!
 # wts_2020
@@ -291,6 +292,7 @@ cpi_wts %>%
   filter(item_code == "SERF02") %>% 
   arrange(desc(date))
 
-# Output to .csv
+# Save and output to .csv
+save(cpi_wts, file = "cpi_wts.RData")
 cpi_wts %>% 
   write_csv("cpi_weights.csv")
